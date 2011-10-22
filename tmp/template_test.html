@@ -1,0 +1,54 @@
+<html>
+    <head>
+        <title>This is a test!</title>
+    </head>
+    <body>
+        <h1>This is a %{var}.</h1>
+        <h2>This is an expression %{var.upper()}.</h1>
+        <ul>
+            %{for item in xrange(num)}
+            <li>Here we have %{item} (%{if item % 2}odd%{else}even%{end}).</li>
+            %{end}
+        </ul>
+        <ul>
+            %{for key, val in dict(foo='few', bar='barr').iteritems()}
+            <li>My %{key} is %{val}.</li>
+            %{end}
+        </ul>
+        <ul>
+            %{for key, val in dict(three=range(1,4), two=range(2)).iteritems()}
+            <li>%{key.capitalize()}:
+                <ul>
+                    %{for val in val}
+                    <li>%{val}... </li>
+                    %{end}
+                </ul>
+            </li>
+            %{end}
+        </ul>
+        <p>This is a % but not a tag.</p>
+        <p>This is a { but not a tag.</p>
+        <p>This } should be ignored completely.</p>
+        %{if num == 5}
+        <h5>The number was 5.</h5>
+        %{elif num > 10}
+        <h3>There are %{num} nums.</h3>
+        %{else}
+        <h4>This is an else clause.</h4>
+        %{end}
+        %{if num > 5}
+        <h2>The number is bigger than 5!</h2>
+        %{else}
+        <h2>The number was five or smaller.</h2>
+        %{if num == 3}
+        <h3>It was three! Surprise!</h3>
+        %{elif num == 5}
+        <h5>It was 5, how boring.</h5>
+        %{else}
+        <p>Stupid number.</p>
+        %{end}
+        <h3>%{for i in xrange(num)}%{i}, %{end}</h3>
+        <h4>%{','.join(str(_) for _ in xrange(num))}</h4>
+        %{end}
+    </body>
+</html>

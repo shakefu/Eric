@@ -1,8 +1,8 @@
 from setuptools import setup
 
 setup(
-        name='foo',
-        version='0.0.1',
+        name='eric',
+        version='0.0.2',
         description='Eric WSGI Framework',
         author='Jake Alheid',
         author_email='jacob.alheid@gmail.com',
