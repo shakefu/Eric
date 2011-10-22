@@ -4,18 +4,74 @@ from pprint import pprint
 from collections import deque
 
 
+class UNSET(object):
+    def __repr__(self):
+        return "UNSET"
+
+    def __nonzero__(self):
+        return False
+
+    def __eq__(self, rhs):
+        return self.__class__ == rhs.__class__
+
+UNSET = UNSET()
+
+
+class Literal(object):
+    def __init__(self, stmt):
+        self.stmt = unicode(stmt)
+
+    def render(self, context):
+        return self.stmt
+
+
 class Eval(object):
-    """ Template EVAL statement. """
     def __init__(self, stmt):
         self.stmt = stmt
 
     def render(self, context):
-        """ Renders a statement in a context.  """
         try:
             return unicode(eval(self.stmt, context))
         except SyntaxError:
             exec self.stmt in context
             return ''
+
+
+class Block(object):
+    def __init__(self):
+        self.stmts = []
+
+    def append(self, stmt):
+        self.stmts.append(stmt)
+
+    def render(self, context):
+        return ''.join(_.render(context) for _ in self.stmts)
+
+
+class If(Block):
+    def __init__(self, expr):
+        super(If, self).__init__()
+        self.expr = expr
+
+
+class For(Block):
+    def __init__(self, iter_expr):
+        super(For, self).__init__()
+        iter_expr = iter_expr.split(' in ')
+        self.names = [_.strip() for _ in iter_expr[0].split(',')]
+        self.expr = iter_expr[1].strip()
+
+    def render(self, context):
+        iterable = iter(eval(self.expr, context))
+        return ''.join(''.join(_.render(
+                        context.push(Context(zip(
+                            self.names,
+                            vals \
+                                    if isinstance(vals, (list, tuple)) \
+                                    else [vals])))
+                        ) for _ in self.stmts)
+
+                        for vals in iterable)
 
 
 class AttrDict(dict):
@@ -32,29 +88,113 @@ class AttrDict(dict):
         if kwargs:
             self.__dict__.update(kwargs)
 
-    def __setitem__(self, item, val):
-        self.__dict__[item] = val
-
-    def __getitem__(self, item):
-        return self.__dict__[item]
-
-    def __delitem__(self, item):
-        del self.__dict__[item]
+    def __cmp__(self, rhs):
+        return self.__dict__.__cmp__(rhs)
 
     def __contains__(self, item):
         return self.__dict__.__contains__(item)
 
+    def __delitem__(self, item):
+        return self.__dict__.__delitem__(item)
+
     def __eq__(self, rhs):
         return self.__dict__.__eq__(rhs)
 
-    def __nonzero__(self):
-        return self.__dict__.__nonzero__()
+    def __format__(self):
+        return self.__dict__.__format__()
+
+    def __ge__(self, rhs):
+        return self.__dict__.__ge__(rhs)
+
+    def __getitem__(self, item):
+        return self.__dict__.__getitem__(item)
+
+    def __gt__(self, rhs):
+        return self.__dict__.__gt__(rhs)
+
+    def __iter__(self):
+        return self.__dict__.__iter__()
+
+    def __le__(self, rhs):
+        return self.__dict__.__le__(rhs)
+
+    def __len__(self):
+        return self.__dict__.__len__()
+
+    def __lt__(self, rhs):
+        return self.__dict__.__lt__(rhs)
+
+    def __ne__(self, rhs):
+        return self.__dict__.__ne__(rhs)
 
     def __repr__(self):
         return self.__dict__.__repr__()
 
+    def __setitem__(self, item, val):
+        return self.__dict__.__setitem__(item, val)
+
     def __str__(self):
         return self.__dict__.__str__()
+
+    def clear(self):
+        return self.__dict__.clear()
+
+    def copy(self):
+        return self.__dict__.copy()
+
+    def fromkeys(self, keys, values=None):
+        return self.__dict__.fromkeys(keys, values)
+
+    def get(self, item, default=UNSET):
+        if default != UNSET:
+            return self.__dict__.get(item, default)
+        return self.__dict__.get(item)
+
+    def has_key(self, key):
+        return self.__dict__.has_key(key)
+
+    def items(self):
+        return self.__dict__.items()
+
+    def iteritems(self):
+        return self.__dict__.iteritems()
+
+    def iterkeys(self):
+        return self.__dict__.iterkeys()
+
+    def itervalues(self):
+        return self.__dict__.itervalues()
+
+    def keys(self):
+        return self.__dict__.keys()
+
+    def pop(self, key, default=UNSET):
+        if default != UNSET:
+            return self.__dict__.pop(key, default)
+        return self.__dict__.pop(key)
+
+    def popitem(self):
+        return self.__dict__.popitem()
+
+    def setdefault(self, default):
+        return self.__dict__.setdefault(default)
+
+    def update(self, upd=None, **kwargs):
+        if upd and kwargs:
+            raise TypeError
+        if upd:
+            self.__dict__.update(upd)
+        if kwargs:
+            self.__dict__.update(kwargs)
+
+    def values(self):
+        return self.__dict__.values()
+
+    def viewitems(self):
+        return self.__dict__.viewitems()
+
+    def viewkeys(self):
+        return self.__dict__.viewkeys()
 
 
 class Context(AttrDict):
@@ -62,12 +202,21 @@ class Context(AttrDict):
     A render context.
 
     """
+    def __init__(self, *args, **kwargs):
+        super(Context, self).__init__(*args, **kwargs)
+        self.parent = None
+
+    def push(self, context):
+        context.update(self.__dict__)
+        context.parent = self
+        return context
 
 
-def compile_template(template, context, show_debug=False):
+
+def compile_template(template, show_debug=False):
     end = len(template)
     index = deque()
-    rendered = deque()
+    compiled = deque()
     funcs = deque()
     contexts = deque()
     closing = deque()
@@ -77,22 +226,15 @@ def compile_template(template, context, show_debug=False):
         if show_debug:
             pprint(stmt)
 
-    def get_context():
-        cont = {}
-        for i in xrange(len(contexts)):
-            cont.update(contexts[i])
-        debug("CONTEXT: %s" % cont)
-        return cont
-
     def find_tag():
         # Branching
         # 2 - skipping due to exclusion
         # 1 - skipping due to False
         # 0 - good to go
 
-        def render(stuff):
+        def compile(stuff):
             if (branches and not branches[-1]) or not branches:
-                rendered.append(stuff)
+                compiled.append(stuff)
 
         search_start = index[-1]
         i = search_start
@@ -206,7 +348,7 @@ def compile_template(template, context, show_debug=False):
             return
         else:
             debug("EVAL statement")
-            render(eval(tag, get_context()))
+            render(Eval(tag))
 
         index[-1] = tag_end
         funcs.append(find_tag)
@@ -396,17 +538,66 @@ def test_compile_template_with_template_test_html():
 
 
 def test_attrdict_init_empty():
-    AttrDict()
+    assert {} == AttrDict()
+
 
 def test_attrdict_init_with_kwargs():
     assert {'foo':'bar'} == AttrDict(foo='bar')
+
 
 def test_attrdict_init_with_dict():
     assert {'foo':'bar'} == AttrDict({'foo':'bar'})
 
 
+def test_attrdict_has_key():
+    assert True == AttrDict({'foo':'bar'}).has_key('foo')
+    assert False == AttrDict({'foo':'bar'}).has_key('bar')
+
+
+def test_attrdict_str():
+    assert str({'foo':'bar'}) == str(AttrDict({'foo':'bar'}))
+
+
+def test_attrdict_update_dict():
+    d = {'foo':'bar'}
+    a = AttrDict(d)
+    d.update({'foo':'fish'})
+    a.update({'foo':'fish'})
+    assert d == a
+
+
+def test_attrdict_update_kw():
+    d = {'foo':'bar'}
+    a = AttrDict(d)
+    d.update(foo='fish')
+    a.update(foo='fish')
+    assert d == a
+
+
+def test_attrdict_clear():
+    d = AttrDict({'foo':'bar'})
+    d.clear()
+    assert {} == d
+
+
+def test_attrdict_copy():
+    d = AttrDict({'foo':'bar'})
+    assert d.copy() is not d
+
+
+def test_attrdict_get_exists():
+    assert 'bar' == AttrDict({'foo':'bar'}).get('foo')
+
+
+def test_attrdict_get_default():
+    assert 'fish' == AttrDict({'foo':'bar'}).get('bar', 'fish')
+
+
 def test_eval_expression():
-    assert u'5' == Eval('num').render(Context(num=5))
+    context = Context(num=5)
+    assert u'5' == Eval('num').render(context)
+    assert u'10' == Eval('num * 2').render(context)
+    assert u'True' == Eval('bool(num)').render(context)
 
 
 def test_eval_statement():
