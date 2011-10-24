@@ -30,16 +30,24 @@ class Branching(object):
         self.state = deque()
 
     def push(self):
+        self.debug("BRANCH PUSH %s" % self.state)
         self.state.append(None)
 
     def skip(self):
+        self.debug("BRANCH SKIP %s" % self.state)
         self.state.append(True)
 
     def next(self):
+        self.debug("BRANCH NEXT %s" % self.state)
         self.state.append(False)
 
     def pop(self):
+        self.debug("BRANCH POP %s" % self.state)
         return self.state.pop()
+
+    def debug(self, stmt):
+        if False:
+            print "  " * (len(self.state) + 1) + stmt
 
     @property
     def branch(self):
@@ -49,8 +57,8 @@ class Branching(object):
 
 
     def allow_if(self, val):
+        self.debug("BRANCH IF")
         if self.branch is not None:
-            print self.state
             raise RuntimeError("Mismatched IF")
         if val:
             self.skip()
@@ -61,6 +69,7 @@ class Branching(object):
             return False
 
     def allow_elif(self, val):
+        self.debug("BRANCH ELIF")
         if self.branch is None:
             raise RuntimeError("Mismatched ELIF")
         if self.branch:
@@ -73,7 +82,9 @@ class Branching(object):
             return False
 
     def allow_else(self):
+        self.debug("BRANCH ELSE")
         if self.branch is None:
+            pdb.set_trace()
             raise RuntimeError("Mismatched ELSE")
         if self.branch:
             return False
@@ -87,9 +98,10 @@ class Literal(object):
         self.stmt = unicode(stmt)
 
     def render(self, context, branch):
+        branch.debug("LITERAL: %s" % self.stmt)
         if branch.branch is not None:
             branch.pop()
-        return self.stmt
+        yield self.stmt
 
 
 class Eval(object):
@@ -97,13 +109,14 @@ class Eval(object):
         self.stmt = stmt
 
     def render(self, context, branch):
+        branch.debug("EVAL: %s" % self.stmt)
         if branch.branch is not None:
             branch.pop()
         try:
-            return unicode(eval(self.stmt, {}, context))
+            yield unicode(eval(self.stmt, {}, context))
         except SyntaxError:
             exec self.stmt in context.as_dict()
-            return ''
+            yield ''
 
 
 class Block(object):
@@ -117,7 +130,9 @@ class Block(object):
         self.stmts.extend(stmts)
 
     def _render(self, context, branch):
-        return ''.join(stmt.render(context, branch) for stmt in self.stmts)
+        for stmt in self.stmts:
+            for item in stmt.render(context, branch):
+                yield item
 
     render = _render
 
@@ -135,14 +150,12 @@ class If(Block):
         self.expr = expr
 
     def render(self, context, branch):
-        if branch.branch is not None:
-            branch.pop()
+        branch.debug("IF %s" % self.expr)
         if branch.allow_if(eval(self.expr, {}, context)):
-            rendered = self._render(context, branch)
+            for item in self._render(context, branch):
+                yield item
             branch.pop()
-        else:
-            rendered = ''
-        return rendered
+            yield ''
 
 
 class ElIf(Block):
@@ -151,22 +164,25 @@ class ElIf(Block):
         self.expr = expr
 
     def render(self, context, branch):
+        branch.debug("ELIF %s" % self.expr)
         if branch.allow_elif(eval(self.expr, {}, context)):
-            rendered = self._render(context, branch)
+            for item in self._render(context, branch):
+                yield item
             branch.pop()
-        else:
-            rendered = ''
-        return rendered
+            yield ''
 
 
 class Else(Block):
     def render(self, context, branch):
+        branch.debug("ELSE")
         if branch.allow_else():
-            rendered = self._render(context, branch)
+            for item in self._render(context, branch):
+                yield item
             branch.pop()
+            yield ''
         else:
-            rendered = ''
-        return rendered
+            branch.pop()
+            yield ''
 
 
 class For(Block):
@@ -177,16 +193,17 @@ class For(Block):
         self.expr = iter_expr[1].strip()
 
     def render(self, context, branch):
+        branch.debug("FOR %s in %s" % (self.names, self.expr))
         if branch.branch is not None:
             branch.pop()
-        return ''.join(''.join(
-            stmt.render(context.push(Context(zip(
-                self.names, vals \
-                        if isinstance(vals, (list, tuple)) \
-                        else [vals]))),
-                        branch)
-            for stmt in self.stmts)
-            for vals in iter(eval(self.expr, {}, context)))
+        for vals in iter(eval(self.expr, {}, context)):
+            for stmt in self.stmts:
+                for item in stmt.render(context.push(Context(zip(
+                    self.names, vals \
+                            if isinstance(vals, (list, tuple)) \
+                            else [vals]))),
+                            branch):
+                    yield item
 
 
 class AttrDict(MutableMapping):
@@ -313,14 +330,10 @@ class Context(AttrDict):
     def __init__(self, *args, **kwargs):
         super(Context, self).__init__(*args, **kwargs)
 
-    def _push(self, sub):
+    def push(self, sub):
         context = self.copy()
         context.update(sub)
         return context
-
-    def push(self, sub):
-        self.update(sub)
-        return self
 
 
 class TemplateError(Exception):
@@ -339,14 +352,20 @@ def parse(template, show_debug=False):
     #TODO: Pass name and stuff in here
     stack.append(CompiledTemplate())
 
+    def debug(stmt):
+        if show_debug:
+            print stmt
+
     while tag_end < end:
         i = template.find(TAG, tag_end)
         if i == -1 or i >= end - 1:
+            debug("EOF: %s" % template[tag_end:])
             stack[-1].append(Literal(template[tag_end:]))
             break
 
         i += 1
         if template[i] != TAG_OPEN:
+            debug("NO TAG: %s" % template[tag_end:i])
             stack[-1].append(Literal(template[tag_end:i]))
             tag_end = i
             continue
@@ -355,40 +374,50 @@ def parse(template, show_debug=False):
         search_start = tag_end
         tag_end = template.find(TAG_END, tag_start)
         if i == -1:
+            debug("ERROR: unclosed tag")
             raise RuntimeError("ERROR: unclosed tag")
 
         tag_expr = template[tag_start:tag_end]
+        debug("FOUND: %s" % tag_expr)
 
         stack[-1].append(Literal(template[search_start:tag_start-2]))
         tag_end += 1
 
         if tag_expr.startswith('if '):
+            debug("IF %s" % tag_expr)
             tag = If(tag_expr[3:])
             stack[-1].append(tag)
             stack.append(tag)
         elif tag_expr.startswith('for '):
+            debug("FOR %s" % tag_expr)
             tag = For(tag_expr[4:])
             stack[-1].append(tag)
             stack.append(tag)
         elif tag_expr.startswith('elif '):
+            debug("ELIF %s" % tag_expr)
             if not isinstance(stack.pop(), If):
                 raise TemplateError("Mismatched ELIF")
             tag = ElIf(tag_expr[5:])
             stack[-1].append(tag)
             stack.append(tag)
         elif tag_expr == 'else':
+            debug("ELSE")
             if not isinstance(stack.pop(), (If, ElIf)):
                 raise TemplateError("Mismatched ELSE")
             tag = Else()
             stack[-1].append(tag)
             stack.append(tag)
         elif tag_expr == 'end':
+            debug("END")
             if not isinstance(stack.pop(), (For, If, ElIf, Else)):
                 raise TemplateError("Mismatched END")
         else:
+            debug("EVAL %s" % tag_expr)
             tag = Eval(tag_expr)
             stack[-1].append(tag)
 
+    if len(stack) > 1:
+        debug("Unmatched tags. Stack height: %s" % len(stack))
     return stack[0]
 
 
