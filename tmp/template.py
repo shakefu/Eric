@@ -94,16 +94,15 @@ class Literal(object):
 
 class Eval(object):
     def __init__(self, stmt):
-        self.stmt = stmt
+        try:
+            self.stmt = compile(stmt, __file__, 'eval')
+        except SyntaxError:
+            self.stmt = compile(stmt, __file__, 'exec')
 
     def render(self, context, branch):
         if branch.branch is not None:
             branch.pop()
-        try:
-            return unicode(eval(self.stmt, {}, context))
-        except SyntaxError:
-            exec self.stmt in context.as_dict()
-            return ''
+        return unicode(eval(self.stmt, {}, context) or '')
 
 
 class Block(object):
@@ -132,7 +131,8 @@ class CompiledTemplate(Block):
 class If(Block):
     def __init__(self, expr):
         super(If, self).__init__()
-        self.expr = expr
+        self.expr = compile(expr, __file__, 'eval')
+        self.branches = []
 
     def render(self, context, branch):
         if branch.branch is not None:
@@ -144,11 +144,14 @@ class If(Block):
             rendered = ''
         return rendered
 
+    def branch(self, branch):
+        self.branches.append(branch)
+
 
 class ElIf(Block):
     def __init__(self, expr):
         super(ElIf, self).__init__()
-        self.expr = expr
+        self.expr = compile(expr, __file__, 'eval')
 
     def render(self, context, branch):
         if branch.allow_elif(eval(self.expr, {}, context)):
@@ -174,7 +177,7 @@ class For(Block):
         super(For, self).__init__()
         iter_expr = iter_expr.split(' in ')
         self.names = [_.strip() for _ in iter_expr[0].split(',')]
-        self.expr = iter_expr[1].strip()
+        self.expr = compile(iter_expr[1].strip(), __file__, 'eval')
 
     def render(self, context, branch):
         if branch.branch is not None:
