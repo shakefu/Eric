@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<?py #@ARGS title, items ?>
+<?py extend() ?>
+<html>
+<head>
+<title>${title}</title>
+</head>
+<body>
+<h2>${title}</h2>
+<table>
+    <?py
+    i = 0
+    for item in items:
+        i += 1
+        klass = i % 2 and 'odd' or 'even'
+    ?>
+    <tr class="#{klass}">
+        <td>${item}</td>
+    </tr>
+    <?py #endfor ?>
+    <form method="POST">
+        <input type="text" name="test" />
+        <input type="text" name="test" />
+        <textarea name="test2"></textarea>
+        <input type="submit" />
+    </form>
+</table>
+</body>
+</html>
+

@@ -1,0 +1,9 @@
+#!/usr/bin/env python
+
+import eric.wsgi
+import gevent.wsgi
+
+if __name__ == '__main__':
+    gevent.wsgi.WSGIServer(('', 8080), eric.wsgi.entry).serve_forever()
+
+
