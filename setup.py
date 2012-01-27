@@ -3,7 +3,7 @@ from distutils.core import setup
 
 setup(
         name='eric',
-        version='0.0.3',
+        version='0.0.4',
         description='Eric WSGI Framework',
         author='Jake Alheid',
         author_email='jacob.alheid@gmail.com',
@@ -15,7 +15,7 @@ setup(
             'tenjin >= 1.0.2',
             'webext >= 0.0.1',
             'minimongo >= 0.2.7',
-            'webob',
+            'webob >= 1.2b2',
             ]
 )
 
