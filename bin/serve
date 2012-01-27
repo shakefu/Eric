@@ -34,15 +34,21 @@ def code_changed():
 
 
 def reload_serve():
-    while True:
-        cmd = os.path.realpath(__file__)
-        process = subprocess.Popen([cmd])
+    process = None
+    try:
         while True:
-            time.sleep(1)
-            if code_changed():
-                print "### Code changed, reloading... ###"
-                process.terminate()
-                break
+            cmd = os.path.realpath(__file__)
+            process = subprocess.Popen([cmd])
+            while True:
+                time.sleep(1)
+                if code_changed():
+                    print \
+"-------------------------------- Reloading... --------------------------------"
+                    process.terminate()
+                    break
+    finally:
+        if process:
+            process.kill()
 
 
 def serve():
@@ -50,6 +56,8 @@ def serve():
 
 
 if __name__ == '__main__':
+    wsgi.load_apps()
+
     if '--reload' in sys.argv:
         reload_serve()
     else:

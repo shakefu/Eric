@@ -1,22 +1,31 @@
 <!DOCTYPE html>
-<?py #@ARGS title, items ?>
+<?py #@ARGS title, items, post ?>
 <?py debug_context() ?>
 <html>
 <head>
 <title>${title}</title>
+<style type="text/css">
+    .odd {
+        background-color: #DDD;
+    }
+    .even {
+        background-color: #AAA;
+    }
+</style>
 </head>
 <body>
 <h2>${title}</h2>
 <table>
-    <?py
-    i = 0
-    for item in items:
-        i += 1
-        klass = i % 2 and 'odd' or 'even'
-    ?>
-    <tr class="#{klass}">
-        <td>${"%02d" % i}</td>
+    <?py for item, val in items.iteritems(): ?>
+    <tr class="#{cycle('odd', 'even')}">
         <td>${item}</td>
+        <td>${val}</td>
+    </tr>
+    <?py #endfor ?>
+    <?py for item, val in post.iteritems(): ?>
+    <tr class="#{cycle('odd', 'even')}">
+        <td>${item}</td>
+        <td>${val}</td>
     </tr>
     <?py #endfor ?>
     <form method="POST">
