@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <?py #@ARGS title, items ?>
-<?py extend() ?>
+<?py debug_context() ?>
 <html>
 <head>
 <title>${title}</title>
@@ -15,6 +15,7 @@
         klass = i % 2 and 'odd' or 'even'
     ?>
     <tr class="#{klass}">
+        <td>${"%02d" % i}</td>
         <td>${item}</td>
     </tr>
     <?py #endfor ?>
