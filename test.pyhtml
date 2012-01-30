@@ -1,5 +1,4 @@
 <!DOCTYPE html>
-<?py #@ARGS title, items, post ?>
 <?py debug_context() ?>
 <html>
 <head>
@@ -17,12 +16,6 @@
 <h2>${title}</h2>
 <table>
     <?py for item, val in items.iteritems(): ?>
-    <tr class="#{cycle('odd', 'even')}">
-        <td>${item}</td>
-        <td>${val}</td>
-    </tr>
-    <?py #endfor ?>
-    <?py for item, val in post.iteritems(): ?>
     <tr class="#{cycle('odd', 'even')}">
         <td>${item}</td>
         <td>${val}</td>

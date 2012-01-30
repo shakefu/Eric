@@ -15,7 +15,7 @@ class TenjinTemplate(tenjin.Template):
 
 # Configure Tenjin
 tenjin.Engine.templateclass = TenjinTemplate
-TenjinTemplate.engine = tenjin.Engine(path=['.'])
+TenjinTemplate.engine = tenjin.Engine(path=['.'], postfix='.pyhtml')
 
 
 def with_tenjin(context=None, template=None):
