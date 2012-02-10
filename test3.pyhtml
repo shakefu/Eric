@@ -1,0 +1,9 @@
+<?py from eric.wsgi import ROUTES ?>
+<ul>
+    <li>Routes:</li>
+    <?py for route in ROUTES.get('GET', []) + ROUTES.get(None, []): ?>
+    <?py url = '/' + route[0].pattern.strip('^$') ?>
+    <li><a href="${url}">${url}</a></li>
+    <?py #endfor ?>
+</ul>
+

@@ -120,7 +120,7 @@ class RequestHandler(Handler):
     def handle(self, environ, start_response):
         req = webob.Request(environ)
         body = self.handle_request(req)
-        if isinstance(body, webob.exc.HTTPException):
+        if isinstance(body, (webob.exc.HTTPException, webob.Response)):
             return body(environ, start_response)
         return webob.Response(body)(environ, start_response)
 

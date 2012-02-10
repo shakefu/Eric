@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <?py from tmp.app import cycle ?>
-<?py debug_context() ?>
+<?py title = _context.get('title', 'Routes') ?>
 <html>
 <head>
 <title>${title}</title>
@@ -17,19 +17,16 @@
 <h2>${title}</h2>
 <?py include('test3.pyhtml') ?>
 <table>
-    <?py for item, val in items.iteritems(): ?>
+    <?py for method in routes: ?>
+    <?py for route in routes[method]: ?>
     <tr class="#{cycle('odd', 'even')}">
-        <td>${item}</td>
-        <td>${val}</td>
+        <td>${method or 'all'}</td>
+        <td>${route[0].pattern}</td>
+        <?py func = route[1].im_self.func ?>
+        <td>${func.__module__}.${func.func_name}</td>
     </tr>
     <?py #endfor ?>
-    <form method="POST">
-        <input type="text" name="test" />
-        <input type="text" name="test" />
-        <textarea name="test2"></textarea>
-        <input type="submit" />
-    </form>
+    <?py #endfor ?>
 </table>
 </body>
 </html>
-
